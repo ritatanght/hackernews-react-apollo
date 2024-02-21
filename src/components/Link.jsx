@@ -2,6 +2,7 @@ import { useMutation, gql } from "@apollo/client";
 
 import { AUTH_TOKEN } from "../constants";
 import { timeDifferenceForDate } from "../utils";
+import { FEED_QUERY } from "./LinkList";
 
 const VOTE_MUTATION = gql`
   mutation VoteMutation($linkId: ID!) {
@@ -28,6 +29,31 @@ const Link = ({ link, index }) => {
   const [vote] = useMutation(VOTE_MUTATION, {
     variables: {
       linkId: link.id,
+    },
+    update: (cache, { data: { vote } }) => {
+      // allows use to read the eact portion of the Apollo cache that we need to update
+      const { feed } = cache.readQuery({ query: FEED_QUERY });
+
+      // create a new array of data that includes the vote that was just made
+      const updatedLinks = feed.links.map((feedLink) => {
+        if (feedLink.id === link.id) {
+          return {
+            ...feedLink,
+            votes: [...feedLink.votes, vote],
+          };
+        }
+        return feedLink;
+      });
+
+      // commit the changes to the cache using cache.writeQuery, passing in the new data
+      cache.writeQuery({
+        query: FEED_QUERY,
+        data: {
+          feed: {
+            links: updatedLinks,
+          },
+        },
+      });
     },
   });
 
