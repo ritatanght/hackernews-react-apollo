@@ -1,9 +1,12 @@
-import Link from "./Link";
 import { useQuery, gql } from "@apollo/client";
+import { useLocation } from "react-router-dom";
+
+import { LINKS_PER_PAGE } from "../constants";
+import Link from "./Link";
 
 export const FEED_QUERY = gql`
-  {
-    feed {
+  query FeedQuery($take: Int, $skip: Int, $orderBy: LinkOrderByInput) {
+    feed(take: $take, skip: $skip, orderBy: $orderBy) {
       id
       links {
         id
@@ -21,6 +24,7 @@ export const FEED_QUERY = gql`
           }
         }
       }
+      count
     }
   }
 `;
@@ -73,15 +77,28 @@ const NEW_VOTES_SUBSCRIPTION = gql`
   }
 `;
 
+const getQueryVariables = (isNewPage, page) => {
+  const skip = isNewPage ? (page - 1) * LINKS_PER_PAGE : 0;
+  const take = isNewPage ? LINKS_PER_PAGE : 100;
+  const orderBy = { createdAt: "desc" };
+  return { take, skip, orderBy };
+};
+
 const LinkList = () => {
-  const { data, loading, error, subscribeToMore } = useQuery(FEED_QUERY);
+  const location = useLocation();
+  const isNewPage = location.pathname.includes("new");
+  const pageIndexParams = location.pathname.split("/");
+  const page = parseInt(pageIndexParams[pageIndexParams.length - 1]);
+  const pageIndex = page ? (page - 1) * LINKS_PER_PAGE : 0;
+  const { data, loading, error, subscribeToMore } = useQuery(FEED_QUERY, {
+    variables: getQueryVariables(isNewPage, page),
+  });
 
   subscribeToMore({
     // subscription document is where we define our subscription
     document: NEW_LINKS_SUBSCRIPTION,
     // updateQuery filed is used to update the cache
     updateQuery: (prev, { subscriptionData }) => {
-      console.log("prev", prev);
       if (!subscriptionData.data) return prev;
       const newLink = subscriptionData.data.newLink;
       const exists = prev.feed.links.find(({ id }) => id === newLink.id);
