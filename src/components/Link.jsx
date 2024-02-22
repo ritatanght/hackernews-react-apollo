@@ -1,6 +1,6 @@
 import { useMutation, gql } from "@apollo/client";
 
-import { AUTH_TOKEN } from "../constants";
+import { AUTH_TOKEN, LINKS_PER_PAGE } from "../constants";
 import { timeDifferenceForDate } from "../utils";
 import { FEED_QUERY } from "./LinkList";
 
@@ -26,13 +26,24 @@ const VOTE_MUTATION = gql`
 
 const Link = ({ link, index }) => {
   const authToken = localStorage.getItem(AUTH_TOKEN);
+  const take = LINKS_PER_PAGE;
+  const skip = 0;
+  const orderBy = { createdAt: "desc" };
+
   const [vote] = useMutation(VOTE_MUTATION, {
     variables: {
       linkId: link.id,
     },
     update: (cache, { data: { vote } }) => {
       // allows use to read the eact portion of the Apollo cache that we need to update
-      const { feed } = cache.readQuery({ query: FEED_QUERY });
+      const { feed } = cache.readQuery({
+        query: FEED_QUERY,
+        variables: {
+          take,
+          skip,
+          orderBy,
+        },
+      });
 
       // create a new array of data that includes the vote that was just made
       const updatedLinks = feed.links.map((feedLink) => {
@@ -52,6 +63,11 @@ const Link = ({ link, index }) => {
           feed: {
             links: updatedLinks,
           },
+        },
+        variables: {
+          take,
+          skip,
+          orderBy,
         },
       });
     },
